@@ -14,7 +14,7 @@ bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 # 自動応答ルールの設定ファイル
 RESPONSES_FILE = "auto_responses.json"
 GACHA_DATA_FILE = "gacha.json"
-OMIKUJI_DATA_FILE = "omikuji.json"
+OMIKUJI_DAILY_DATA_FILE = "omikuji_data.json"
 
 # 自動応答ルールをメモリに読み込む
 def load_responses():
@@ -40,17 +40,17 @@ def save_gacha_data(data):
     with open(GACHA_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
 
-# おみくじ回数データを読み込む
-def load_omikuji_data():
-    if not os.path.exists(OMIKUJI_DATA_FILE):
+# おみくじの今日引いた記録を読み込む
+def load_omikuji_daily_data():
+    if not os.path.exists(OMIKUJI_DAILY_DATA_FILE):
         return {}
-    with open(OMIKUJI_DATA_FILE, "r", encoding="utf-8") as f:
+    with open(OMIKUJI_DAILY_DATA_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
-# おみくじ回数データを保存する
-def save_omikuji_data(data):
-    with open(OMIKUJI_DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
+# おみくじの今日引いた記録を保存する
+def save_omikuji_daily_data(data):
+    with open(OMIKUJI_DAILY_DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
 auto_responses = load_responses()
 
@@ -121,29 +121,19 @@ async def omikuji(ctx):
         await ctx.send("このチャンネルでは使えません！")
         return
 
-    data = load_omikuji_data()
+    data = load_omikuji_daily_data()
     user_id = str(ctx.author.id)
+    today = str(datetime.date.today())
 
-    if user_id not in data or data[user_id] <= 0:
-        await ctx.send("おみくじ回数が残っていません！")
+    if user_id in data and data[user_id] == today:
+        await ctx.send("今日はもうおみくじ引いてるよ！また明日🎍")
         return
 
-    data[user_id] -= 1
-    save_omikuji_data(data)
+    result = random.choice(["大吉", "中吉", "小吉", "凶"])
+    data[user_id] = today
+    save_omikuji_daily_data(data)
 
-    roll = random.random()
-    if roll < 0.10:
-        result = "🌟 大吉"
-    elif roll < 0.30:
-        result = "✨ 中吉"
-    elif roll < 0.60:
-        result = "🔵 小吉"
-    else:
-        result = "⚪ 凶"
-
-    await ctx.send(
-        f"{ctx.author.display_name} のおみくじ結果：{result}\n残り回数：{data[user_id]}回"
-    )
+    await ctx.send(f"{ctx.author.mention} の結果は… **{result}**！")
 
 # 管理者：回数設定
 @bot.command()
@@ -170,31 +160,6 @@ async def addgacha(ctx, member: discord.Member, count: int):
 
     await ctx.send(f"{member.display_name} に {count} 回追加しました！（現在：{data[user_id]}回）")
 
-# 管理者：おみくじ回数設定
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def setomikuji(ctx, member: discord.Member, count: int):
-    data = load_omikuji_data()
-    data[str(member.id)] = count
-    save_omikuji_data(data)
-
-    await ctx.send(f"{member.display_name} のおみくじ回数を {count} 回に設定しました！")
-
-# 管理者：おみくじ回数追加
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def addomikuji(ctx, member: discord.Member, count: int):
-    data = load_omikuji_data()
-    user_id = str(member.id)
-
-    if user_id not in data:
-        data[user_id] = 0
-
-    data[user_id] += count
-    save_omikuji_data(data)
-
-    await ctx.send(f"{member.display_name} に {count} 回追加しました！（現在：{data[user_id]}回）")
-
 # 自分の残り回数確認
 @bot.command()
 async def gachacount(ctx):
@@ -203,15 +168,6 @@ async def gachacount(ctx):
 
     count = data.get(user_id, 0)
     await ctx.send(f"{ctx.author.display_name} の残り回数：{count}回")
-
-# おみくじ残り回数確認
-@bot.command()
-async def omikujicount(ctx):
-    data = load_omikuji_data()
-    user_id = str(ctx.author.id)
-
-    count = data.get(user_id, 0)
-    await ctx.send(f"{ctx.author.display_name} のおみくじ残り回数：{count}回")
 
 # 自動応答関連のコマンド
 @bot.command()
