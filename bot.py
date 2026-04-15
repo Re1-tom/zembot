@@ -7,7 +7,8 @@ import datetime
 
 # ここを、決められたチャンネルIDに置き換えてください
 GOOD_MORNING_CHANNEL_ID = 1466034502160875612
-ALLOWED_CHANNEL_ID = 1485997367969976340  # ←ここにコピーしたID
+ALLOWED_GACHA_CHANNEL_ID = 1493880361044672533  # ガチャ実行可能チャンネル
+ALLOWED_OMIKUJI_CHANNEL_ID = 1485997367969976340  # おみくじ実行可能チャンネル
 
 bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 
@@ -86,7 +87,7 @@ def pull():
 
 @bot.command()
 async def gacha(ctx):
-    if ctx.channel.id != ALLOWED_CHANNEL_ID:
+    if ctx.channel.id != ALLOWED_GACHA_CHANNEL_ID:
         await ctx.send("このチャンネルでは使えません！")
         return
 
@@ -117,7 +118,7 @@ async def gacha(ctx):
 # おみくじ
 @bot.command()
 async def omikuji(ctx):
-    if ctx.channel.id != ALLOWED_CHANNEL_ID:
+    if ctx.channel.id != ALLOWED_OMIKUJI_CHANNEL_ID:
         await ctx.send("このチャンネルでは使えません！")
         return
 
