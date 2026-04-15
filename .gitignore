@@ -1,0 +1,4 @@
+*.exe
+*.zip
+node_modules/
+.venv/
