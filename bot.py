@@ -9,6 +9,7 @@ import datetime
 GOOD_MORNING_CHANNEL_ID = 1466034502160875612
 ALLOWED_GACHA_CHANNEL_ID = 1493880361044672533  # ガチャ実行可能チャンネル
 ALLOWED_OMIKUJI_CHANNEL_ID = 1485997367969976340  # おみくじ実行可能チャンネル
+AUTO_ROLE_ID = 1481949665216954472  # 新規参加者に付与するロールIDに置き換えてください
 
 bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 
@@ -232,6 +233,21 @@ async def on_message(message):
     
     # コマンド処理を実行
     await bot.process_commands(message)
+
+@bot.event
+async def on_member_join(member):
+    role = member.guild.get_role(AUTO_ROLE_ID)
+    if role is None:
+        print(f"[WARN] 自動付与ロールID {AUTO_ROLE_ID} が見つかりませんでした。")
+        return
+
+    try:
+        await member.add_roles(role, reason="新規参加者への自動付与")
+        print(f"[INFO] {member.display_name} にロール {role.name} を付与しました。")
+    except discord.Forbidden:
+        print(f"[ERROR] ロール付与権限がありません: {role.name}")
+    except Exception as e:
+        print(f"[ERROR] 新規参加者へのロール付与に失敗: {e}")
 
 @tasks.loop(time=datetime.time(hour=7, minute=0, second=0))
 async def good_morning_task():
