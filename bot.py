@@ -235,37 +235,6 @@ async def on_message(message):
     # コマンド処理を実行
     await bot.process_commands(message)
 
-@bot.event
-async def on_member_join(member):
-    role = member.guild.get_role(AUTO_ROLE_ID)
-    if role is None:
-        print(f"[WARN] 自動付与ロールID {AUTO_ROLE_ID} が見つかりませんでした。")
-        return
-
-    try:
-        await member.add_roles(role, reason="新規参加者への自動付与")
-        print(f"[INFO] {member.display_name} にロール {role.name} を付与しました。")
-    except discord.Forbidden:
-        print(f"[ERROR] ロール付与権限がありません: {role.name}")
-    except Exception as e:
-        print(f"[ERROR] 新規参加者へのロール付与に失敗: {e}")
-
-<<<<<<< HEAD
-=======
-@bot.command()
-async def testmorning(ctx):
-    """朝の挨拶をテスト送信します。"""
-    channel = bot.get_channel(GOOD_MORNING_CHANNEL_ID)
-    if channel is None:
-        await ctx.send(f"❌ チャンネルID {GOOD_MORNING_CHANNEL_ID} が見つかりません。")
-        return
-    try:
-        await channel.send("おはよう (テスト)")
-        await ctx.send("✅ テスト送信完了")
-    except Exception as e:
-        await ctx.send(f"❌ 送信失敗: {e}")
-
->>>>>>> 436ad19 (botzemのエラーを直しておはようできるようにした。)
 @tasks.loop(time=datetime.time(hour=7, minute=0, second=0))
 async def good_morning_task():
     channel = bot.get_channel(GOOD_MORNING_CHANNEL_ID)
