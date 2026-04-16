@@ -131,11 +131,12 @@ async def omikuji(ctx):
         await ctx.send("今日はもうおみくじ引いてるよ！また明日🎍")
         return
 
-    result = random.choice(["大吉", "中吉", "小吉", "凶"])
+    result = pull()  # 確率に基づいた結果を取得
+    comment = random.choice(rarities[result])  # コメントをランダムに選択
     data[user_id] = today
     save_omikuji_daily_data(data)
 
-    await ctx.send(f"{ctx.author.mention} の結果は… **{result}**！")
+    await ctx.send(f"{ctx.author.mention} の結果は… **{result}**！ {comment}")
 
 # 管理者：回数設定
 @bot.command()
