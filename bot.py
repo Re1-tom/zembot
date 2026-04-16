@@ -247,6 +247,15 @@ async def good_morning_task():
         print(f"[ERROR] 朝の挨拶送信に失敗: {e}")
 
 @bot.event
+async def on_member_join(member):
+    role = member.guild.get_role(AUTO_ROLE_ID)
+    if role:
+        await member.add_roles(role)
+        print(f"{member} に自動でロール {role.name} を付与しました。")
+    else:
+        print(f"ロールID {AUTO_ROLE_ID} が見つかりません。")
+
+@bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     if not good_morning_task.is_running():
