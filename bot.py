@@ -4,6 +4,9 @@ import random
 import json
 import os
 import datetime
+import pytz
+
+JST = pytz.timezone('Asia/Tokyo')
 
 # ここを、決められたチャンネルIDに置き換えてください
 GOOD_MORNING_CHANNEL_ID = 1466034502160875612
@@ -125,7 +128,7 @@ async def omikuji(ctx):
 
     data = load_omikuji_daily_data()
     user_id = str(ctx.author.id)
-    today = str(datetime.date.today())
+    today = datetime.datetime.now(JST).date().isoformat()
 
     if user_id in data and data[user_id] == today:
         await ctx.send("今日はもうおみくじ引いてるよ！また明日🎍")
@@ -235,7 +238,7 @@ async def on_message(message):
     # コマンド処理を実行
     await bot.process_commands(message)
 
-@tasks.loop(time=datetime.time(hour=7, minute=0, second=0))
+@tasks.loop(time=datetime.time(hour=22, minute=0, second=0))
 async def good_morning_task():
     channel = bot.get_channel(GOOD_MORNING_CHANNEL_ID)
     if channel is None:
