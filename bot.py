@@ -21,6 +21,14 @@ RESPONSES_FILE = "auto_responses.json"
 GACHA_DATA_FILE = "gacha.json"
 OMIKUJI_DAILY_DATA_FILE = "omikuji_data.json"
 
+# 自動モデレーション設定
+NG_WORDS = ["badword1", "badword2", "spam", "inappropriate"]  # NGワードリスト（必要に応じて拡張）
+SPAM_TIME_LIMIT = 5  # 秒単位：この時間以内のメッセージを連投とみなす
+SPAM_MESSAGE_LIMIT = 2  # この回数以上のメッセージを連投とみなす
+
+# ユーザーのメッセージ履歴（スパム検知用）
+user_message_history = {}  # user_id: [timestamp1, timestamp2, ...]
+
 # 自動応答ルールをメモリに読み込む
 def load_responses():
     if os.path.exists(RESPONSES_FILE):
@@ -228,6 +236,33 @@ async def on_message(message):
     if message.author == bot.user:
         await bot.process_commands(message)
         return
+    
+    # 自動モデレーション：NGワード検知
+    message_content = message.content.lower()
+    for ng_word in NG_WORDS:
+        if ng_word.lower() in message_content:
+            await message.delete()
+            await message.channel.send(f"{message.author.mention} NGワードが検知されました。メッセージを削除しました。")
+            return  # メッセージを削除したら、それ以上の処理をしない
+    
+    # 自動モデレーション：スパム・連投制限
+    user_id = str(message.author.id)
+    now = datetime.datetime.now(JST)
+    
+    if user_id not in user_message_history:
+        user_message_history[user_id] = []
+    
+    # 古いメッセージを削除（時間制限外のものを）
+    user_message_history[user_id] = [ts for ts in user_message_history[user_id] if (now - ts).seconds < SPAM_TIME_LIMIT]
+    
+    # 現在のメッセージを追加
+    user_message_history[user_id].append(now)
+    
+    # 連投チェック
+    if len(user_message_history[user_id]) > SPAM_MESSAGE_LIMIT:
+        await message.delete()
+        await message.channel.send(f"{message.author.mention} 連投が検知されました。メッセージを削除しました。")
+        return  # メッセージを削除したら、それ以上の処理をしない
     
     # 登録されたキーワードをチェック
     for keyword, response in auto_responses.items():
