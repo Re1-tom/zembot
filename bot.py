@@ -4,6 +4,9 @@ import random
 import json
 import os
 import datetime
+import pytz
+
+JST = pytz.timezone('Asia/Tokyo')
 
 # ここを、決められたチャンネルIDに置き換えてください
 GOOD_MORNING_CHANNEL_ID = 1466034502160875612
@@ -17,6 +20,14 @@ bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 RESPONSES_FILE = "auto_responses.json"
 GACHA_DATA_FILE = "gacha.json"
 OMIKUJI_DAILY_DATA_FILE = "omikuji_data.json"
+
+# 自動モデレーション設定
+NG_WORDS = ["badword1", "badword2", "spam", "inappropriate"]  # NGワードリスト（必要に応じて拡張）
+SPAM_TIME_LIMIT = 5  # 秒単位：この時間以内のメッセージを連投とみなす
+SPAM_MESSAGE_LIMIT = 2  # この回数以上のメッセージを連投とみなす
+
+# ユーザーのメッセージ履歴（スパム検知用）
+user_message_history = {}  # user_id: [timestamp1, timestamp2, ...]
 
 # 自動応答ルールをメモリに読み込む
 def load_responses():
@@ -125,17 +136,18 @@ async def omikuji(ctx):
 
     data = load_omikuji_daily_data()
     user_id = str(ctx.author.id)
-    today = str(datetime.date.today())
+    today = datetime.datetime.now(JST).date().isoformat()
 
     if user_id in data and data[user_id] == today:
         await ctx.send("今日はもうおみくじ引いてるよ！また明日🎍")
         return
 
-    result = random.choice(["大吉", "中吉", "小吉", "凶"])
+    result = pull()  # 確率に基づいた結果を取得
+    comment = random.choice(rarities[result])  # コメントをランダムに選択
     data[user_id] = today
     save_omikuji_daily_data(data)
 
-    await ctx.send(f"{ctx.author.mention} の結果は… **{result}**！")
+    await ctx.send(f"{ctx.author.mention} の結果は… **{result}**！ {comment}")
 
 # 管理者：回数設定
 @bot.command()
@@ -225,6 +237,33 @@ async def on_message(message):
         await bot.process_commands(message)
         return
     
+    # 自動モデレーション：NGワード検知
+    message_content = message.content.lower()
+    for ng_word in NG_WORDS:
+        if ng_word.lower() in message_content:
+            await message.delete()
+            await message.channel.send(f"{message.author.mention} NGワードが検知されました。メッセージを削除しました。")
+            return  # メッセージを削除したら、それ以上の処理をしない
+    
+    # 自動モデレーション：スパム・連投制限
+    user_id = str(message.author.id)
+    now = datetime.datetime.now(JST)
+    
+    if user_id not in user_message_history:
+        user_message_history[user_id] = []
+    
+    # 古いメッセージを削除（時間制限外のものを）
+    user_message_history[user_id] = [ts for ts in user_message_history[user_id] if (now - ts).seconds < SPAM_TIME_LIMIT]
+    
+    # 現在のメッセージを追加
+    user_message_history[user_id].append(now)
+    
+    # 連投チェック
+    if len(user_message_history[user_id]) > SPAM_MESSAGE_LIMIT:
+        await message.delete()
+        await message.channel.send(f"{message.author.mention} 連投が検知されました。メッセージを削除しました。")
+        return  # メッセージを削除したら、それ以上の処理をしない
+    
     # 登録されたキーワードをチェック
     for keyword, response in auto_responses.items():
         if keyword in message.content:
@@ -234,22 +273,7 @@ async def on_message(message):
     # コマンド処理を実行
     await bot.process_commands(message)
 
-@bot.event
-async def on_member_join(member):
-    role = member.guild.get_role(AUTO_ROLE_ID)
-    if role is None:
-        print(f"[WARN] 自動付与ロールID {AUTO_ROLE_ID} が見つかりませんでした。")
-        return
-
-    try:
-        await member.add_roles(role, reason="新規参加者への自動付与")
-        print(f"[INFO] {member.display_name} にロール {role.name} を付与しました。")
-    except discord.Forbidden:
-        print(f"[ERROR] ロール付与権限がありません: {role.name}")
-    except Exception as e:
-        print(f"[ERROR] 新規参加者へのロール付与に失敗: {e}")
-
-@tasks.loop(time=datetime.time(hour=7, minute=0, second=0))
+@tasks.loop(time=datetime.time(hour=22, minute=0, second=0))
 async def good_morning_task():
     channel = bot.get_channel(GOOD_MORNING_CHANNEL_ID)
     if channel is None:
@@ -259,6 +283,15 @@ async def good_morning_task():
         await channel.send("おはよう")
     except Exception as e:
         print(f"[ERROR] 朝の挨拶送信に失敗: {e}")
+
+@bot.event
+async def on_member_join(member):
+    role = member.guild.get_role(AUTO_ROLE_ID)
+    if role:
+        await member.add_roles(role)
+        print(f"{member} に自動でロール {role.name} を付与しました。")
+    else:
+        print(f"ロールID {AUTO_ROLE_ID} が見つかりません。")
 
 @bot.event
 async def on_ready():
