@@ -66,6 +66,8 @@ def save_omikuji_daily_data(data):
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 auto_responses = load_responses()
+gacha_data = load_gacha_data()
+omikuji_data = load_omikuji_daily_data()
 
 rarities = {
     "大吉": ["やったね", "やるやん"],
@@ -103,15 +105,14 @@ async def gacha(ctx):
         await ctx.send("このチャンネルでは使えません！")
         return
 
-    data = load_gacha_data()
     user_id = str(ctx.author.id)
 
-    if user_id not in data or data[user_id] <= 0:
+    if user_id not in gacha_data or gacha_data[user_id] <= 0:
         await ctx.send("ガチャ回数が残っていません！")
         return
 
-    data[user_id] -= 1
-    save_gacha_data(data)
+    gacha_data[user_id] -= 1
+    save_gacha_data(gacha_data)
 
     roll = random.random()
     if roll < 0.05:
@@ -124,7 +125,7 @@ async def gacha(ctx):
         result = "⚪ N"
 
     await ctx.send(
-        f"{ctx.author.display_name} のガチャ結果：{result}\n残り回数：{data[user_id]}回"
+        f"{ctx.author.display_name} のガチャ結果：{result}\n残り回数：{gacha_data[user_id]}回"
     )
 
 # おみくじ
@@ -134,18 +135,17 @@ async def omikuji(ctx):
         await ctx.send("このチャンネルでは使えません！")
         return
 
-    data = load_omikuji_daily_data()
     user_id = str(ctx.author.id)
     today = datetime.datetime.now(JST).date().isoformat()
 
-    if user_id in data and data[user_id] == today:
+    if user_id in omikuji_data and omikuji_data[user_id] == today:
         await ctx.send("今日はもうおみくじ引いてるよ！また明日🎍")
         return
 
     result = pull()  # 確率に基づいた結果を取得
     comment = random.choice(rarities[result])  # コメントをランダムに選択
-    data[user_id] = today
-    save_omikuji_daily_data(data)
+    omikuji_data[user_id] = today
+    save_omikuji_daily_data(omikuji_data)
 
     await ctx.send(f"{ctx.author.mention} の結果は… **{result}**！ {comment}")
 
@@ -153,9 +153,8 @@ async def omikuji(ctx):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setgacha(ctx, member: discord.Member, count: int):
-    data = load_gacha_data()
-    data[str(member.id)] = count
-    save_gacha_data(data)
+    gacha_data[str(member.id)] = count
+    save_gacha_data(gacha_data)
 
     await ctx.send(f"{member.display_name} のガチャ回数を {count} 回に設定しました！")
 
@@ -163,24 +162,22 @@ async def setgacha(ctx, member: discord.Member, count: int):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def addgacha(ctx, member: discord.Member, count: int):
-    data = load_gacha_data()
     user_id = str(member.id)
 
-    if user_id not in data:
-        data[user_id] = 0
+    if user_id not in gacha_data:
+        gacha_data[user_id] = 0
 
-    data[user_id] += count
-    save_gacha_data(data)
+    gacha_data[user_id] += count
+    save_gacha_data(gacha_data)
 
     await ctx.send(f"{member.display_name} に {count} 回追加しました！（現在：{data[user_id]}回）")
 
 # 自分の残り回数確認
 @bot.command()
 async def gachacount(ctx):
-    data = load_gacha_data()
     user_id = str(ctx.author.id)
 
-    count = data.get(user_id, 0)
+    count = gacha_data.get(user_id, 0)
     await ctx.send(f"{ctx.author.display_name} の残り回数：{count}回")
 
 # 自動応答関連のコマンド
@@ -233,8 +230,7 @@ async def listresponses(ctx):
 @bot.event
 async def on_message(message):
     # ボット自身のメッセージは反応しない
-    if message.author == bot.user:
-        await bot.process_commands(message)
+    if message.author.bot:
         return
     
     # 自動モデレーション：NGワード検知
